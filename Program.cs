@@ -1,17 +1,65 @@
 
-using Microsoft.AspNetCore.Mvc;
+
 using TodoApi;
 
 var builder = WebApplication.CreateBuilder(args);
-
-// Added as service
-builder.Services.AddSingleton<ToDoDbContext>();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAllOrigins",
+        builder => builder.AllowAnyOrigin()
+                          .AllowAnyMethod()
+                          .AllowAnyHeader());
+});
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+builder.Services.AddDbContext<ToDoDbContext>(); // שימוש במסד נתונים בזיכרון
 
 var app = builder.Build();
-app.MapGet("/items", (ToDoDbContext db) => 
+app.UseCors("AllowAllOrigins");
+
+
+app.MapGet("/items", (ToDoDbContext db) => db.Items.ToList());
+
+app.MapPost("/items", (string name, ToDoDbContext db) => 
 {
-    return db.Items.ToList();
+    Item item=new Item(){Name=name,IsComplete=false};
+    db.Items.Add(item);
+    db.SaveChanges();
+    return Results.Created($"/items/{item.Id}", item);
 });
+
+app.MapPut("/items/{id}", (int id, Item updatedItem, ToDoDbContext db) => 
+{
+    var item = db.Items.Find(id);
+    if (item is null) return Results.NotFound();
+    
+    // עדכון רק את הסטטוס אם הוא נשלח
+    if (updatedItem.IsComplete.HasValue)
+    {
+        item.IsComplete = updatedItem.IsComplete;
+    }
+    if (!string.IsNullOrEmpty(updatedItem.Name))
+    {
+        item.Name = updatedItem.Name;
+    }
+    
+    db.SaveChanges();
+    return Results.NoContent();
+});
+
+app.MapDelete("/items/{id}", (int id, ToDoDbContext db) => 
+{
+    var item = db.Items.Find(id);
+    if (item is null) return Results.NotFound();
+    
+    db.Items.Remove(item);
+    db.SaveChanges();
+    return Results.NoContent();
+});
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
 app.Run();
-
-

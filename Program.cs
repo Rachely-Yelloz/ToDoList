@@ -56,10 +56,10 @@ app.MapDelete("/items/{id}", (int id, ToDoDbContext db) =>
     db.SaveChanges();
     return Results.NoContent();
 });
-if (app.Environment.IsDevelopment())
-{
+//if (app.Environment.IsDevelopment())
+//{
     app.UseSwagger();
     app.UseSwaggerUI();
-}
-
+//}
+app.MapGet("/",()=>"Authserver API is running");
 app.Run();

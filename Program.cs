@@ -1,5 +1,6 @@
 
 
+using Microsoft.EntityFrameworkCore;
 using TodoApi;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,20 +13,31 @@ builder.Services.AddCors(options =>
 });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddDbContext<ToDoDbContext>(); // שימוש במסד נתונים בזיכרון
+// builder.Services.AddDbContext<ToDoDbContext>(); // שימוש במסד נתונים בזיכרון
+var connectionString = builder.Configuration.GetConnectionString("ToDoDB");
+builder.Services.AddDbContext<ToDoDbContext>(options =>
+    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString))
+);
 
 var app = builder.Build();
 app.UseCors("AllowAllOrigins");
 
 
-app.MapGet("/items", (ToDoDbContext db) => db.Items.ToList());
+//app.MapGet("/items", (ToDoDbContext db) => db.Items.ToList());
+app.MapGet("/items", async (ToDoDbContext db) => { return await db.Items.ToListAsync(); });
 
-app.MapPost("/items", (string name, ToDoDbContext db) => 
+// app.MapPost("/items", (string name, ToDoDbContext db) => 
+// {
+//     Item item=new Item(){Name=name,IsComplete=false};
+//     db.Items.Add(item);
+//     db.SaveChanges();
+//     return Results.Created($"/items/{item.Id}", item);
+// });
+app.MapPost("items/", (Item item, ToDoDbContext db) => 
 {
-    Item item=new Item(){Name=name,IsComplete=false};
     db.Items.Add(item);
-    db.SaveChanges();
-    return Results.Created($"/items/{item.Id}", item);
+    db.SaveChanges(); 
+    return Results.Created($"/{item.Id}", item); 
 });
 
 app.MapPut("/items/{id}", (int id, Item updatedItem, ToDoDbContext db) => 
@@ -56,10 +68,17 @@ app.MapDelete("/items/{id}", (int id, ToDoDbContext db) =>
     db.SaveChanges();
     return Results.NoContent();
 });
-//if (app.Environment.IsDevelopment())
-//{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-//}
+// //if (app.Environment.IsDevelopment())
+// //{
+//     app.UseSwagger();
+//     app.UseSwaggerUI();
+// //}
+app.UseSwagger();  
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Todo API V1");
+    c.RoutePrefix = string.Empty;
+});
+
 app.MapGet("/",()=>"Authserver API is running");
 app.Run();
